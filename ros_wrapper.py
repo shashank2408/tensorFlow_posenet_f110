@@ -21,9 +21,7 @@ class RosWrapperPoseNet:
 		self.predictedOdom  = Odometry()
 		self.predictedOdom.header.stamp = rospy.Time.now()
 		self.predictedOdom.header.frame_id = "predictedOdom"
-		#self.vescOdom = Odometry()
-		#self.vescOdom.header.stamp = rospy.Time.now()
-		#self.vescOdom.header.frame_id = "vescOdom"
+
 		subprocess.call("rosparam load params.yaml",shell=True)
 		self.image_tf = tf.placeholder(tf.float32, [1, 224, 224, 3])
 		net = PoseNet({'data': self.image_tf})
@@ -42,9 +40,13 @@ class RosWrapperPoseNet:
 	
 	def imageCallback(self,image):
 		cv_image = self.bridge.imgmsg_to_cv2(image, "bgr8")
-		mean = np.zeros((1,3,224,224))
+		X = np.zeros((1,3,224,224))
 		image = cv2.resize(cv_image, (455, 256))
 		image = centeredCrop(self.image, 224)
+		X[0][0] = image[:,:,0]
+		X[0][1] = image[:,:,1]
+		X[0][2] = image[:,:,2]
+		self.image = X
 		self.callPosenet()
 		
 	def callPosenet(self):
