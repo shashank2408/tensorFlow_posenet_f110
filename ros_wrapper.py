@@ -30,9 +30,14 @@ class RosWrapperPoseNet:
 		self.p3_q = net.layers['cls3_fc_pose_wpqr']
 
 		init = tf.initialize_all_variables()
-
+		
+		#To make tensor flow run properly on the TX2 
+		#https://devtalk.nvidia.com/default/topic/1029742/jetson-tx2/tensorflow-1-6-not-working-with-jetpack-3-2/
+		config = tf.ConfigProto()
+		config.gpu_options.allow_growth = True
+		
 		saver = tf.train.Saver()
-		self.sess = tf.Session()
+		self.sess = tf.Session(config=config)
 		self.sess.run(init)
 		saver.restore(self.sess, 'PoseNet.ckpt')
 		self.listener()
@@ -42,11 +47,11 @@ class RosWrapperPoseNet:
 		cv_image = self.bridge.imgmsg_to_cv2(image, "bgr8")
 		X = np.zeros((1,3,224,224))
 		image = cv2.resize(cv_image, (455, 256))
-		image = centeredCrop(self.image, 224)
+		image = centeredCrop(image, 224)
 		X[0][0] = image[:,:,0]
 		X[0][1] = image[:,:,1]
 		X[0][2] = image[:,:,2]
-		self.image = X
+		self.image = np.transpose(X,(0,2,3,1))
 		self.callPosenet()
 		
 	def callPosenet(self):
