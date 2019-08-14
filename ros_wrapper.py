@@ -20,7 +20,7 @@ class RosWrapperPoseNet:
 		self.bridge = CvBridge()
 		self.predictedOdom  = Odometry()
 		self.predictedOdom.header.stamp = rospy.Time.now()
-		self.predictedOdom.header.frame_id = "predictedOdom"
+		self.predictedOdom.header.frame_id = "odom"
 
 		subprocess.call("rosparam load params.yaml",shell=True)
 		self.image_tf = tf.placeholder(tf.float32, [1, 224, 224, 3])
@@ -41,6 +41,9 @@ class RosWrapperPoseNet:
 		self.sess.run(init)
 		saver.restore(self.sess, 'PoseNet.ckpt')
 		self.listener()
+		self.initial = False
+		self.predicted_q_init = []
+		self.predicted_p_init = []
 			
 	
 	def imageCallback(self,image):
@@ -65,6 +68,12 @@ class RosWrapperPoseNet:
 			predicted_q = np.squeeze(predicted_q)
 			predicted_x = np.squeeze(predicted_x)
 			
+			#if not self.initial:
+			#	self.predicted_q_init = predicted_q
+			#	self.predicted_x_init = predicted_x
+			#	self.initial = True
+		#predicted_q = np.subtract(predicted_q,self.predicted_q_init)
+		#predicted_x = np.subtract(predicted_x,self.predicted_x_init)
 		self.predictedOdom.pose.pose = Pose(Point(predicted_x[0],predicted_x[1],predicted_x[2]),\
 						Quaternion(predicted_q[0],predicted_q[1],predicted_q[2],predicted_q[3]))
 		self.odomPub.publish(self.predictedOdom)
