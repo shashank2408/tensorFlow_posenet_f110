@@ -20,7 +20,7 @@ class RosWrapperPoseNet:
 		self.bridge = CvBridge()
 		self.predictedOdom  = Odometry()
 		self.predictedOdom.header.stamp = rospy.Time.now()
-		self.predictedOdom.header.frame_id = "predictedOdom"
+		self.predictedOdom.header.frame_id = "odom"
 
 		subprocess.call("rosparam load params.yaml",shell=True)
 		self.image_tf = tf.placeholder(tf.float32, [1, 224, 224, 3])
@@ -41,7 +41,18 @@ class RosWrapperPoseNet:
 		self.sess.run(init)
 		saver.restore(self.sess, 'PoseNet.ckpt')
 		self.listener()
-			
+	
+	def transform(self,predict_q, predicted_x):
+		# Camera- x -> right y -> down z -> front
+		# Vesc- x -> front y -> left z -> up
+		# rotation about z axis clockwise 90 and about x axis clockwise 90
+			RtZ = np.array([[0,-1,0],[1,0,0],[0,0,1]])
+			RtX = np.array([[1 ,0,0],[0,0,-1],[0,1,0]])
+			trX = np.dot(RtX, np.dot(RtZ,predicted_x.T))
+			q_rot = quaternion_from_euler(pi/2, 0, pi/2)
+			trQ = quaternion_multiply(q_rot, predict_q)
+			return trQ,trX.T
+
 	
 	def imageCallback(self,image):
 		cv_image = self.bridge.imgmsg_to_cv2(image, "bgr8")
@@ -65,6 +76,9 @@ class RosWrapperPoseNet:
 			predicted_q = np.squeeze(predicted_q)
 			predicted_x = np.squeeze(predicted_x)
 			
+
+			predict_q, predict_x = self.transform(predicted_q,predicted_x)
+
 		self.predictedOdom.pose.pose = Pose(Point(predicted_x[0],predicted_x[1],predicted_x[2]),\
 						Quaternion(predicted_q[0],predicted_q[1],predicted_q[2],predicted_q[3]))
 		self.odomPub.publish(self.predictedOdom)
